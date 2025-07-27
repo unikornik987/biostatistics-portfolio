@@ -1,0 +1,46 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+
+
+df = pd.read_csv("RESULTS_DEG_tumor.csv")
+
+fc_threshold = 1  
+pval_threshold = 0.01
+
+df["significance"] = "Not Significant"
+df.loc[(df["logFC"] > fc_threshold) & (df["adj.P.Val"] < pval_threshold), "significance"] = "Upregulated"
+df.loc[(df["logFC"] < -fc_threshold) & (df["adj.P.Val"] < pval_threshold), "significance"] = "Downregulated"
+
+fig, ax = plt.subplots(figsize=(10, 8))
+sns.scatterplot(data=df, x="logFC", y=-np.log10(df["adj.P.Val"]), hue="significance", palette={"Upregulated": "red", "Downregulated": "blue", "Not Significant": "grey"}, alpha=0.6, s=8, ax=ax)
+plt.axhline(-np.log10(pval_threshold), linestyle='--', color='black', linewidth=0.5)
+plt.axvline(fc_threshold, linestyle='--', color='black', linewidth=0.5)
+plt.axvline(-fc_threshold, linestyle='--', color='black', linewidth=0.5)
+plt.title("Volcano Plot")
+plt.xlabel("log2 Fold Change")
+plt.ylabel("-log10 Adjusted p-value")
+plt.legend(title="Significance")
+
+#Podpisanie kilku najbardziej wyróżniających się genów
+top_up = df[(df["logFC"] > 0) & (df["adj.P.Val"] < 0.05)].sort_values("adj.P.Val").head(5)
+top_down = df[(df["logFC"] < 0) & (df["adj.P.Val"] < 0.05)].sort_values("adj.P.Val").head(3)
+top_genes = pd.concat([top_up, top_down])
+#Różne pozycje podpisów, aby na siebie nie nachodziły
+offsets = [(-30, 15), (-30, 15), (-30, 15), (0, 15), (25, -15), (30, 15), (-30, 15), (0, 15)]
+for i, (_, row) in enumerate(top_genes.iterrows()):
+    offset = offsets[i % len(offsets)]
+    ax.annotate(
+        row["SYMBOL"],
+        (row["logFC"], -np.log10(row["adj.P.Val"])),
+        textcoords="offset points",
+        xytext=offset,
+        ha='center',
+        fontsize=8,
+        arrowprops=dict(arrowstyle='->', lw=0.5, color='black')
+    )
+
+plt.tight_layout()
+plt.savefig("volcano_plot.png", dpi=300)
+plt.savefig("volcano_plot.pdf")
